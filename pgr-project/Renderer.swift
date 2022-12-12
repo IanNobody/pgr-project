@@ -25,6 +25,7 @@ class Renderer: NSObject, MTKViewDelegate {
     public let device: MTLDevice
     let commandQueue: MTLCommandQueue
     var pipelineState: MTLRenderPipelineState
+    var computePipelineState: MTLComputePipelineState
     var depthState: MTLDepthStencilState
     let inFlightSemaphore = DispatchSemaphore(value: maxBuffersInFlight)
 
@@ -69,11 +70,15 @@ class Renderer: NSObject, MTKViewDelegate {
         metalKitView.sampleCount = 1
 
         let mtlVertexDescriptor = Renderer.buildMetalVertexDescriptor()
+        let cmpVertexDescriptor = Renderer.buildComputeVertexDescriptor()
 
         do {
             pipelineState = try Renderer.buildRenderPipelineWithDevice(device: device,
                                                                        metalKitView: metalKitView,
                                                                        mtlVertexDescriptor: mtlVertexDescriptor)
+            computePipelineState = try Renderer.buildComputePipelineWithDevice(device: device,
+                                                                               metalKitView: metalKitView,
+                                                                               mtlVertexDescriptor: cmpVertexDescriptor)
         } catch {
             print("Unable to compile render pipeline state.  Error info: \(error)")
             return nil
@@ -129,6 +134,39 @@ class Renderer: NSObject, MTKViewDelegate {
         return mtlVertexDescriptor
     }
 
+    class func buildComputeVertexDescriptor() -> MTLVertexDescriptor {
+        // Create a Metal vertex descriptor specifying how vertices will by laid out for input into our render
+        //   pipeline and how we'll layout our Model IO vertices
+
+        let mtlVertexDescriptor = MTLVertexDescriptor()
+
+        mtlVertexDescriptor.attributes[VertexAttribute.position.rawValue].format = MTLVertexFormat.float3
+        mtlVertexDescriptor.attributes[VertexAttribute.position.rawValue].offset = 0
+        mtlVertexDescriptor.attributes[VertexAttribute.position.rawValue].bufferIndex = BufferIndex.meshPositions.rawValue
+
+        mtlVertexDescriptor.attributes[VertexAttribute.texcoord.rawValue].format = MTLVertexFormat.float2
+        mtlVertexDescriptor.attributes[VertexAttribute.texcoord.rawValue].offset = 0
+        mtlVertexDescriptor.attributes[VertexAttribute.texcoord.rawValue].bufferIndex = BufferIndex.meshGenerics.rawValue
+
+        mtlVertexDescriptor.attributes[VertexAttribute.normal.rawValue].format = MTLVertexFormat.float3
+        mtlVertexDescriptor.attributes[VertexAttribute.normal.rawValue].offset = 0
+        mtlVertexDescriptor.attributes[VertexAttribute.normal.rawValue].bufferIndex = BufferIndex.normal.rawValue
+
+        mtlVertexDescriptor.layouts[BufferIndex.meshPositions.rawValue].stride = 12
+        mtlVertexDescriptor.layouts[BufferIndex.meshPositions.rawValue].stepRate = 1
+        mtlVertexDescriptor.layouts[BufferIndex.meshPositions.rawValue].stepFunction = MTLVertexStepFunction.perVertex
+
+        mtlVertexDescriptor.layouts[BufferIndex.meshGenerics.rawValue].stride = 8
+        mtlVertexDescriptor.layouts[BufferIndex.meshGenerics.rawValue].stepRate = 1
+        mtlVertexDescriptor.layouts[BufferIndex.meshGenerics.rawValue].stepFunction = MTLVertexStepFunction.perVertex
+
+        mtlVertexDescriptor.layouts[BufferIndex.normal.rawValue].stride = 12
+        mtlVertexDescriptor.layouts[BufferIndex.normal.rawValue].stepRate = 1
+        mtlVertexDescriptor.layouts[BufferIndex.normal.rawValue].stepFunction = MTLVertexStepFunction.perVertex
+
+        return mtlVertexDescriptor
+    }
+
     class func buildRenderPipelineWithDevice(device: MTLDevice,
                                              metalKitView: MTKView,
                                              mtlVertexDescriptor: MTLVertexDescriptor) throws -> MTLRenderPipelineState {
@@ -149,6 +187,14 @@ class Renderer: NSObject, MTKViewDelegate {
         pipelineDescriptor.stencilAttachmentPixelFormat = metalKitView.depthStencilPixelFormat
 
         return try device.makeRenderPipelineState(descriptor: pipelineDescriptor)
+    }
+
+    class func buildComputePipelineWithDevice(device: MTLDevice,
+                                              metalKitView: MTKView,
+                                              mtlVertexDescriptor: MTLVertexDescriptor) throws -> MTLComputePipelineState {
+        let library = device.makeDefaultLibrary()
+        let computeFunction = library?.makeFunction(name: "illumination")
+        return try device.makeComputePipelineState(function: computeFunction!)
     }
 
     class func loadTexture(device: MTLDevice,
@@ -186,7 +232,7 @@ class Renderer: NSObject, MTKViewDelegate {
 
         let rotationAxis = SIMD3<Float>(1, 1, 0)
         let rotationMatrix = matrix4x4_rotation(radians: rotation, axis: rotationAxis)
-        uniforms[0].viewMatrix = matrix_multiply(matrix4x4_translation(0.0, 0.0, -5.0), rotationMatrix)
+        uniforms[0].viewMatrix = matrix4x4_translation(0.0, 0.0, -5.0)// matrix_multiply(matrix4x4_translation(0.0, 0.0, -5.0), rotationMatrix)
         rotation += 0.01
     }
 
@@ -265,9 +311,12 @@ class Renderer: NSObject, MTKViewDelegate {
             /// Delay getting the currentRenderPassDescriptor until we absolutely need it to avoid
             ///   holding onto the drawable and blocking the display pipeline any longer than necessary
             let renderPassDescriptor = view.currentRenderPassDescriptor
-            
+
+            //let renderEncoder = commandBuffer.makeComputeCommandEncoder()
+            //renderEncoder?.setComputePipelineState(computePipelineState)
+
+
             if let renderPassDescriptor = renderPassDescriptor {
-                
                 /// Final pass rendering code here
                 if let renderEncoder = commandBuffer.makeRenderCommandEncoder(descriptor: renderPassDescriptor) {
                     renderEncoder.label = "Primary Render Encoder"

@@ -49,7 +49,6 @@
 		D14A4F912933A37200CA2651 = {
 			isa = PBXGroup;
 			children = (
-				D133352A293A6AFF00DFFF20 /* Types.swift */,
 				D14A4F9C2933A37200CA2651 /* pgr-project */,
 				D14A4F9B2933A37200CA2651 /* Products */,
 			);
@@ -66,6 +65,7 @@
 		D14A4F9C2933A37200CA2651 /* pgr-project */ = {
 			isa = PBXGroup;
 			children = (
+				D133352A293A6AFF00DFFF20 /* Types.swift */,
 				D14A4FB12933B6E400CA2651 /* Math.swift */,
 				D14A4F9D2933A37200CA2651 /* AppDelegate.swift */,
 				D14A4F9F2933A37200CA2651 /* GameViewController.swift */,

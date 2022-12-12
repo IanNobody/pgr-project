@@ -37,9 +37,9 @@ typedef struct
 kernel void illumination(Vertex in [[stage_in]],
                          constant Light & light [[ buffer(1) ]],
                          texture2d<half> textureColor [[ texture(0) ]],
-                         texture2d<half> lightMap [[ texture(1) ]])
+                         texture2d<float, access::write> lightMap [[ texture(1) ]])
 {
-
+    lightMap.write(float4(0, 0, 0, 1), ushort2(0, 0));
 }
 
 vertex ColorInOut vertexShader(Vertex in [[stage_in]],
